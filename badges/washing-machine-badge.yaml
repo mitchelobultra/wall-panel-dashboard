@@ -110,6 +110,19 @@ badges:
             100% { opacity: 0; transform: translate(-20px, -14px) scale(1); }
           }
 
+          /* Used only by "Filling": a water level + a diagonal highlight
+             layer both nudged with background-position. This is the one
+             place we animate a paint-triggering property instead of
+             transform/opacity, but it's a single small (18px) element for
+             one specific state, so the cost is negligible even on weak
+             devices - there was no way to get a believable "level" wave
+             using compositor-only properties without a second nested
+             element, which pseudo-elements can't have. */
+          @keyframes waterSlosh {
+            0% { background-position: 0 2px, 0% 40%; }
+            100% { background-position: 0 -2px, 100% 60%; }
+          }
+
           /* Generic "breathing" pulse used for the non-tumbling states
              (detecting, drying, delay set, freeze protection, alerts). */
           @keyframes breathePulse {
@@ -177,11 +190,30 @@ badges:
             }
 
           {% elif status == 'Filling' %}
-            /* Water pouring in: bubbles only, drum not moving yet. */
-            :host { --wm-icon-color: var(--state-active-color, #2196f3); }
-            ha-state-icon::before, ha-state-icon::after {
-              --bubble-opacity: 0.8;
-              animation: floatBubble 2.6s linear infinite;
+            /* Sloshing water visible inside the drum window instead of
+               bubbles floating around the outside - the machine isn't
+               moving yet, water is just rising/settling. Approximated as
+               a small circle roughly where the mdi washing-machine icon's
+               door sits; nudge --wm-fill-shift-y below if it needs to
+               line up better with the real icon artwork on your panel. */
+            :host {
+              --wm-icon-color: var(--state-active-color, #2196f3);
+              --wm-fill-shift-y: -45%;
+            }
+            ha-state-icon::before {
+              top: 50%;
+              left: 50%;
+              width: 18px;
+              height: 18px;
+              transform: translate(-50%, var(--wm-fill-shift-y));
+              border-radius: 50%;
+              background:
+                linear-gradient(180deg, transparent 0 30%, rgba(33,150,243,0.85) 30% 100%),
+                repeating-linear-gradient(100deg, rgba(255,255,255,0.35) 0 3px, transparent 3px 9px);
+              background-size: 100% 100%, 220% 220%;
+              opacity: 1;
+              animation: waterSlosh 2.6s ease-in-out infinite alternate;
+              will-change: background-position;
             }
 
           {% elif status in ['Rinsing', 'Waiting to rinse', 'Refreshing'] %}
@@ -217,12 +249,36 @@ badges:
             }
 
           {% elif status == 'Delay set' %}
-            /* Waiting on a scheduled start: slow amber breathing. */
+            /* Static icon (nothing is actually running yet) with a small
+               clock badge overlapping the top-right corner, like an app
+               notification bubble. Two static, non-animated layers:
+               ::before paints the round backdrop, ::after masks a clock
+               glyph on top of it in the badge color - both painted once
+               and left alone, so this state costs nothing ongoing. */
             :host { --wm-icon-color: #ffb300; }
-            ha-state-icon {
-              --pulse-min-opacity: 0.6;
-              --pulse-scale: 1.05;
-              animation: breathePulse 3s ease-in-out infinite;
+            ha-state-icon::before, ha-state-icon::after {
+              top: -4px;
+              left: auto;
+              right: -6px;
+              width: 16px;
+              height: 16px;
+              opacity: 1;
+            }
+            ha-state-icon::before {
+              border-radius: 50%;
+              background-color: var(--card-background-color, #1c1c1c);
+              box-shadow: 0 0 0 1.5px var(--card-background-color, #1c1c1c);
+            }
+            ha-state-icon::after {
+              background-color: #ffb300;
+              -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12.5,7V12.25L17,14.92L16.25,16.15L11,13V7H12.5Z'/%3E%3C/svg%3E");
+              mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12.5,7V12.25L17,14.92L16.25,16.15L11,13V7H12.5Z'/%3E%3C/svg%3E");
+              -webkit-mask-repeat: no-repeat;
+              mask-repeat: no-repeat;
+              -webkit-mask-position: center;
+              mask-position: center;
+              -webkit-mask-size: 62%;
+              mask-size: 62%;
             }
 
           {% elif status == 'Freeze protection in progress' %}
@@ -244,8 +300,33 @@ badges:
             }
 
           {% elif status == 'Paused' %}
-            /* Cycle manually paused mid-way: static amber icon. */
+            /* Cycle manually paused mid-way: same static-badge treatment
+               as "Delay set" above, with a pause glyph instead of a clock. */
             :host { --wm-icon-color: #ffb300; }
+            ha-state-icon::before, ha-state-icon::after {
+              top: -4px;
+              left: auto;
+              right: -6px;
+              width: 16px;
+              height: 16px;
+              opacity: 1;
+            }
+            ha-state-icon::before {
+              border-radius: 50%;
+              background-color: var(--card-background-color, #1c1c1c);
+              box-shadow: 0 0 0 1.5px var(--card-background-color, #1c1c1c);
+            }
+            ha-state-icon::after {
+              background-color: #ffb300;
+              -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M14,19H18V5H14M6,19H10V5H6V19Z'/%3E%3C/svg%3E");
+              mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M14,19H18V5H14M6,19H10V5H6V19Z'/%3E%3C/svg%3E");
+              -webkit-mask-repeat: no-repeat;
+              mask-repeat: no-repeat;
+              -webkit-mask-position: center;
+              mask-position: center;
+              -webkit-mask-size: 55%;
+              mask-size: 55%;
+            }
 
           {% elif status == 'Freeze protection paused' %}
             /* Freeze protection paused: static icy icon. */
