@@ -51,114 +51,59 @@ badges:
 
           {% if is_state('switch.washing_machine_power', 'off') %}
             /*
-              Only the rotation angle changes between keyframes now - every
-              keyframe keeps an identical transform function list
-              (rotate3d + translateZ) and identical timing-function shape.
-              Browsers only get a stable, compositor-only animation (no
-              main-thread re-layout/re-rasterization) when the animated
-              property's value "shape" never changes between keyframes;
-              mixing 2D rotate() with a 3D translateZ() hack per-frame (the
-              previous version) forces the browser to recompute the
-              composited layer's matrix on every frame, which is what
-              produced the visible jitter/size-pop. rotate3d() is itself a
-              3D transform, so it promotes to its own GPU layer without
-              needing a separate translateZ(0) hack tacked onto each frame.
+              Both animations below only ever touch `transform` and
+              `opacity`. Those are the two properties every browser -
+              including weak/old WebKit engines like a Tizen smart-fridge
+              browser - can animate purely on the compositor thread, with
+              no main-thread layout or repaint per frame. That's what
+              actually matters for low-power devices, far more than any
+              GPU-layer-promotion trickery (3D transforms, translateZ
+              hacks, backface-visibility, etc.), which just spends extra
+              GPU memory a constrained device may not have to spare.
+              Keeping it to plain 2D rotate()/translate()/opacity is both
+              cheaper and more compatible.
             */
             @keyframes rockDecay {
               0% {
-                transform: rotate3d(0, 0, 1, 0deg);
+                transform: rotate(0deg);
                 animation-timing-function: ease-out;
               }
               8% {
-                transform: rotate3d(0, 0, 1, -15deg);
+                transform: rotate(-15deg);
                 animation-timing-function: ease-in-out;
               }
               24% {
-                transform: rotate3d(0, 0, 1, 10deg);
+                transform: rotate(10deg);
                 animation-timing-function: ease-in-out;
               }
               40% {
-                transform: rotate3d(0, 0, 1, -6deg);
+                transform: rotate(-6deg);
                 animation-timing-function: ease-in-out;
               }
               56% {
-                transform: rotate3d(0, 0, 1, 3deg);
+                transform: rotate(3deg);
                 animation-timing-function: ease-in-out;
               }
-              64% {
-                transform: rotate3d(0, 0, 1, 0deg);
-                animation-timing-function: linear;
-              }
-              100% {
-                transform: rotate3d(0, 0, 1, 0deg);
+              64%, 100% {
+                transform: rotate(0deg);
               }
             }
 
-            @keyframes floatFiveBubbles {
-              0% {
-                box-shadow:
-                  0 0 0 1px rgba(100,181,246,0.8),
-                  0 0 0 -1px rgba(100,181,246,0),
-                  0 0 0 0px rgba(100,181,246,0),
-                  0 0 0 2px rgba(100,181,246,0),
-                  0 0 0 -1px rgba(100,181,246,0);
-              }
-              10% {
-                box-shadow:
-                  -10px -8px 0 1px rgba(100,181,246,0.7),
-                  0 0 0 -1px rgba(100,181,246,0.8),
-                  0 0 0 0px rgba(100,181,246,0),
-                  0 0 0 2px rgba(100,181,246,0),
-                  0 0 0 -1px rgba(100,181,246,0);
-              }
-              20% {
-                box-shadow:
-                  -18px -4px 0 1px rgba(100,181,246,0.4),
-                  10px -10px 0 -1px rgba(100,181,246,0.7),
-                  0 0 0 0px rgba(100,181,246,0.8),
-                  0 0 0 2px rgba(100,181,246,0),
-                  0 0 0 -1px rgba(100,181,246,0);
-              }
-              30% {
-                box-shadow:
-                  -22px 10px 0 1px rgba(100,181,246,0),
-                  18px -6px 0 -1px rgba(100,181,246,0.4),
-                  -8px -12px 0 0px rgba(100,181,246,0.7),
-                  0 0 0 2px rgba(100,181,246,0.8),
-                  0 0 0 -1px rgba(100,181,246,0);
-              }
-              40% {
-                box-shadow:
-                  -22px 10px 0 1px rgba(100,181,246,0),
-                  22px 8px 0 -1px rgba(100,181,246,0),
-                  -16px -8px 0 0px rgba(100,181,246,0.4),
-                  12px -9px 0 2px rgba(100,181,246,0.7),
-                  0 0 0 -1px rgba(100,181,246,0.8);
-              }
-              50% {
-                box-shadow:
-                  -22px 10px 0 1px rgba(100,181,246,0),
-                  22px 8px 0 -1px rgba(100,181,246,0),
-                  -20px 6px 0 0px rgba(100,181,246,0),
-                  20px -3px 0 2px rgba(100,181,246,0.4),
-                  -11px -10px 0 -1px rgba(100,181,246,0.7);
-              }
-              60% {
-                box-shadow:
-                  -22px 10px 0 1px rgba(100,181,246,0),
-                  22px 8px 0 -1px rgba(100,181,246,0),
-                  -20px 6px 0 0px rgba(100,181,246,0),
-                  24px 10px 0 2px rgba(100,181,246,0),
-                  -18px -5px 0 -1px rgba(100,181,246,0.4);
-              }
-              70%, 100% {
-                box-shadow:
-                  -22px 10px 0 1px rgba(100,181,246,0),
-                  22px 8px 0 -1px rgba(100,181,246,0),
-                  -20px 6px 0 0px rgba(100,181,246,0),
-                  24px 10px 0 2px rgba(100,181,246,0),
-                  -23px 8px 0 -1px rgba(100,181,246,0);
-              }
+            /*
+              Replaces the old 5-layer box-shadow "bubbles" animation.
+              Animating box-shadow can never run on the compositor - the
+              browser has to recompute and repaint it on the main thread
+              on every single frame, and doing that for 5 shadow layers at
+              once is real CPU work. On a phone or tablet that's a battery
+              drain; on a fridge SoC it's a dropped-frames stutter. Two
+              small real elements faded/moved with opacity + transform give
+              the same "rising bubbles" read for a fraction of the cost.
+            */
+            @keyframes floatBubble {
+              0% { opacity: 0; transform: translate(0, 0) scale(0.5); }
+              15% { opacity: 0.8; }
+              70% { opacity: 0; }
+              100% { opacity: 0; transform: translate(-20px, -14px) scale(1); }
             }
 
             ha-state-icon {
@@ -167,40 +112,44 @@ badges:
               transform-origin: bottom center !important;
               position: relative;
               color: var(--state-active-color) !important;
-
-              /* Locks the icon into its own GPU layer up front so the very
-                 first animation frame is already composited - this avoids
-                 the one-frame "pop" that happens when a layer is promoted
-                 only once the animation starts. */
-              transform: translateZ(0);
               will-change: transform;
-              backface-visibility: hidden;
             }
 
-            ha-state-icon::before {
+            ha-state-icon::before,
+            ha-state-icon::after {
               content: '';
               position: absolute;
               top: 0px;
               left: 50%;
               width: 5px;
               height: 5px;
-              background-color: transparent;
+              background-color: rgba(100, 181, 246, 0.8);
               border-radius: 50%;
               pointer-events: none;
-              animation: floatFiveBubbles 3.5s linear infinite;
+              opacity: 0;
+              animation: floatBubble 3.5s linear infinite;
+              will-change: transform, opacity;
+            }
 
-              /*
-                box-shadow can't be animated on the compositor - every frame
-                has to be repainted on the main thread. Without its own
-                layer, that repaint work invalidates the parent icon's
-                layer too (they'd share one), which is what stalls the
-                rotate animation and reads as jitter. Promoting this pseudo
-                element to its own layer isolates the expensive box-shadow
-                repaints from the icon's transform animation so the rock
-                stays smooth regardless of how much repaint the bubbles need.
-              */
-              transform: translateZ(0);
-              will-change: box-shadow;
+            ha-state-icon::after {
+              /* Second bubble reuses the same keyframes, mirrored and
+                 offset in time, instead of defining a second animation -
+                 keeps the CSS payload (and re-parse cost on every card_mod
+                 template re-render) smaller. */
+              animation-delay: -1.75s;
+              transform: scaleX(-1);
+            }
+
+            /* Respect the OS/browser-level reduced-motion preference so
+               anyone (or any device) that has turned it on for battery or
+               comfort reasons gets a static icon instead of paying for
+               the animation at all. */
+            @media (prefers-reduced-motion: reduce) {
+              ha-state-icon,
+              ha-state-icon::before,
+              ha-state-icon::after {
+                animation: none !important;
+              }
             }
           {% else %}
             ha-state-icon {
