@@ -1,0 +1,215 @@
+type: custom:badge-horizontal-container-card
+card_mod:
+  style: |
+    :host {
+      display: flex !important;
+      align-items: center !important;
+      height: 100% !important;
+    }
+    #root {
+      display: flex !important;
+      align-items: center !important;
+    }
+badges:
+  - type: custom:hui-entity-badge
+    show_name: false
+    show_state: true
+    show_icon: true
+    entity: sensor.washing_machine_current_status
+    icon: mdi:washing-machine
+    show_entity_picture: false
+    state_content:
+      - state
+      - last_updated
+    card_mod:
+      style:
+        ha-badge $: |
+          /* 1. Expand the badge shape */
+          .badge {
+            height: 60px !important;
+            border-radius: 15px !important;
+            padding: 0 10px !important;
+          }
+
+          /* 2. Scale the icon */
+          .icon {
+            width: 32px !important;
+            height: 32px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+          }
+        .: |
+          :host {
+            --mdc-icon-size: 32px !important;
+            --ha-badge-icon-size: 32px !important;
+
+            /* Sizing controls for the promoted State (Label) and Last Updated (Value) */
+            --ha-badge-label-font-size: 17px !important;
+            --ha-badge-font-size: 13px !important;
+          }
+
+          {% if is_state('switch.washing_machine_power', 'off') %}
+            /*
+              Only the rotation angle changes between keyframes now - every
+              keyframe keeps an identical transform function list
+              (rotate3d + translateZ) and identical timing-function shape.
+              Browsers only get a stable, compositor-only animation (no
+              main-thread re-layout/re-rasterization) when the animated
+              property's value "shape" never changes between keyframes;
+              mixing 2D rotate() with a 3D translateZ() hack per-frame (the
+              previous version) forces the browser to recompute the
+              composited layer's matrix on every frame, which is what
+              produced the visible jitter/size-pop. rotate3d() is itself a
+              3D transform, so it promotes to its own GPU layer without
+              needing a separate translateZ(0) hack tacked onto each frame.
+            */
+            @keyframes rockDecay {
+              0% {
+                transform: rotate3d(0, 0, 1, 0deg);
+                animation-timing-function: ease-out;
+              }
+              8% {
+                transform: rotate3d(0, 0, 1, -15deg);
+                animation-timing-function: ease-in-out;
+              }
+              24% {
+                transform: rotate3d(0, 0, 1, 10deg);
+                animation-timing-function: ease-in-out;
+              }
+              40% {
+                transform: rotate3d(0, 0, 1, -6deg);
+                animation-timing-function: ease-in-out;
+              }
+              56% {
+                transform: rotate3d(0, 0, 1, 3deg);
+                animation-timing-function: ease-in-out;
+              }
+              64% {
+                transform: rotate3d(0, 0, 1, 0deg);
+                animation-timing-function: linear;
+              }
+              100% {
+                transform: rotate3d(0, 0, 1, 0deg);
+              }
+            }
+
+            @keyframes floatFiveBubbles {
+              0% {
+                box-shadow:
+                  0 0 0 1px rgba(100,181,246,0.8),
+                  0 0 0 -1px rgba(100,181,246,0),
+                  0 0 0 0px rgba(100,181,246,0),
+                  0 0 0 2px rgba(100,181,246,0),
+                  0 0 0 -1px rgba(100,181,246,0);
+              }
+              10% {
+                box-shadow:
+                  -10px -8px 0 1px rgba(100,181,246,0.7),
+                  0 0 0 -1px rgba(100,181,246,0.8),
+                  0 0 0 0px rgba(100,181,246,0),
+                  0 0 0 2px rgba(100,181,246,0),
+                  0 0 0 -1px rgba(100,181,246,0);
+              }
+              20% {
+                box-shadow:
+                  -18px -4px 0 1px rgba(100,181,246,0.4),
+                  10px -10px 0 -1px rgba(100,181,246,0.7),
+                  0 0 0 0px rgba(100,181,246,0.8),
+                  0 0 0 2px rgba(100,181,246,0),
+                  0 0 0 -1px rgba(100,181,246,0);
+              }
+              30% {
+                box-shadow:
+                  -22px 10px 0 1px rgba(100,181,246,0),
+                  18px -6px 0 -1px rgba(100,181,246,0.4),
+                  -8px -12px 0 0px rgba(100,181,246,0.7),
+                  0 0 0 2px rgba(100,181,246,0.8),
+                  0 0 0 -1px rgba(100,181,246,0);
+              }
+              40% {
+                box-shadow:
+                  -22px 10px 0 1px rgba(100,181,246,0),
+                  22px 8px 0 -1px rgba(100,181,246,0),
+                  -16px -8px 0 0px rgba(100,181,246,0.4),
+                  12px -9px 0 2px rgba(100,181,246,0.7),
+                  0 0 0 -1px rgba(100,181,246,0.8);
+              }
+              50% {
+                box-shadow:
+                  -22px 10px 0 1px rgba(100,181,246,0),
+                  22px 8px 0 -1px rgba(100,181,246,0),
+                  -20px 6px 0 0px rgba(100,181,246,0),
+                  20px -3px 0 2px rgba(100,181,246,0.4),
+                  -11px -10px 0 -1px rgba(100,181,246,0.7);
+              }
+              60% {
+                box-shadow:
+                  -22px 10px 0 1px rgba(100,181,246,0),
+                  22px 8px 0 -1px rgba(100,181,246,0),
+                  -20px 6px 0 0px rgba(100,181,246,0),
+                  24px 10px 0 2px rgba(100,181,246,0),
+                  -18px -5px 0 -1px rgba(100,181,246,0.4);
+              }
+              70%, 100% {
+                box-shadow:
+                  -22px 10px 0 1px rgba(100,181,246,0),
+                  22px 8px 0 -1px rgba(100,181,246,0),
+                  -20px 6px 0 0px rgba(100,181,246,0),
+                  24px 10px 0 2px rgba(100,181,246,0),
+                  -23px 8px 0 -1px rgba(100,181,246,0);
+              }
+            }
+
+            ha-state-icon {
+              --mdc-icon-size: 32px !important;
+              animation: rockDecay 3.5s infinite;
+              transform-origin: bottom center !important;
+              position: relative;
+              color: var(--state-active-color) !important;
+
+              /* Locks the icon into its own GPU layer up front so the very
+                 first animation frame is already composited - this avoids
+                 the one-frame "pop" that happens when a layer is promoted
+                 only once the animation starts. */
+              transform: translateZ(0);
+              will-change: transform;
+              backface-visibility: hidden;
+            }
+
+            ha-state-icon::before {
+              content: '';
+              position: absolute;
+              top: 0px;
+              left: 50%;
+              width: 5px;
+              height: 5px;
+              background-color: transparent;
+              border-radius: 50%;
+              pointer-events: none;
+              animation: floatFiveBubbles 3.5s linear infinite;
+
+              /*
+                box-shadow can't be animated on the compositor - every frame
+                has to be repainted on the main thread. Without its own
+                layer, that repaint work invalidates the parent icon's
+                layer too (they'd share one), which is what stalls the
+                rotate animation and reads as jitter. Promoting this pseudo
+                element to its own layer isolates the expensive box-shadow
+                repaints from the icon's transform animation so the rock
+                stays smooth regardless of how much repaint the bubbles need.
+              */
+              transform: translateZ(0);
+              will-change: box-shadow;
+            }
+          {% else %}
+            ha-state-icon {
+              --mdc-icon-size: 32px !important;
+              color: gray !important;
+            }
+          {% endif %}
+badges_align: left
+badges_wrap: scroll
+grid_options:
+  columns: 27
+  rows: auto
