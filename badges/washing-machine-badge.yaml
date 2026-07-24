@@ -60,13 +60,15 @@ badges:
             re-render, which happens on most sensor state changes since
             state_content includes last_updated).
 
-            Every keyframe here only ever touches `transform` and
+            Almost every keyframe here only touches `transform` and
             `opacity` - the two properties every browser, including
             weak/old WebKit engines like a Tizen smart-fridge browser, can
             animate purely on the compositor thread with no main-thread
             layout or repaint per frame. Amplitude/speed/color differences
             between states are expressed with CSS custom properties so we
-            don't need a separate @keyframes block per state.
+            don't need a separate @keyframes block per state. The one
+            exception is waterSlosh (see below), which has a good reason
+            for stepping outside that rule.
           */
           @keyframes rockDecay {
             0% {
@@ -110,21 +112,54 @@ badges:
             100% { opacity: 0; transform: translate(-20px, -14px) scale(1); }
           }
 
-          /* Used only by "Filling": a water level + a diagonal highlight
-             layer both nudged with background-position. This is the one
-             place we animate a paint-triggering property instead of
-             transform/opacity, but it's a single small (18px) element for
-             one specific state, so the cost is negligible even on weak
-             devices - there was no way to get a believable "level" wave
-             using compositor-only properties without a second nested
-             element, which pseudo-elements can't have. */
+          /* Used only by "add_drain" (Filling): two layers of repeating
+             radial-gradient "bumps" form a wavy surface that drifts
+             sideways continuously (seamless loop - each layer's x
+             position shifts by exactly one tile width, 20px, over the
+             animation), sitting on a solid fill layer whose height
+             animates so the overall level gently rises and falls. This
+             is the one place we animate background-position/size
+             instead of transform/opacity, but it's a single small
+             (18px) element for one specific state, so the cost is
+             negligible even on weak devices - there's no way to get a
+             believable wavy fill line using compositor-only properties
+             without nested elements, which pseudo-elements can't have. */
           @keyframes waterSlosh {
-            0% { background-position: 0 2px, 0% 40%; }
-            100% { background-position: 0 -2px, 100% 60%; }
+            0% {
+              background-position: 0 42%, 10px 44%, 0 100%;
+              background-size: 20px 12px, 20px 12px, 100% 56%;
+            }
+            50% {
+              background-position: -10px 38%, 0px 40%, 0 100%;
+              background-size: 20px 12px, 20px 12px, 100% 64%;
+            }
+            100% {
+              background-position: -20px 42%, -10px 44%, 0 100%;
+              background-size: 20px 12px, 20px 12px, 100% 56%;
+            }
+          }
+
+          /* Magnifying glass badge used only by "detecting": leans in over
+             the icon to "inspect" it and returns to its resting corner
+             spot in 1.5s (0%-60% of a 2.5s loop), then holds still for a
+             1s pause (60%-100%) before repeating. */
+          @keyframes magnifyInspect {
+            0%, 60%, 100% {
+              transform: translate(0, 0) scale(1) rotate(0deg);
+            }
+            15% {
+              transform: translate(-7px, 7px) scale(1.08) rotate(-4deg);
+            }
+            30% {
+              transform: translate(-10px, 9px) scale(1.15) rotate(6deg);
+            }
+            45% {
+              transform: translate(-8px, 8px) scale(1.1) rotate(-3deg);
+            }
           }
 
           /* Generic "breathing" pulse used for the non-tumbling states
-             (detecting, drying, delay set, freeze protection, alerts). */
+             (detergent_amount, error, freeze protection running, drying). */
           @keyframes breathePulse {
             0%, 100% {
               opacity: var(--pulse-min-opacity, 0.55);
@@ -140,7 +175,7 @@ badges:
             --mdc-icon-size: 32px !important;
             transform-origin: bottom center !important;
             position: relative;
-            color: var(--wm-icon-color, gray) !important;
+            color: var(--wm-icon-color, white) !important;
             will-change: transform;
           }
 
@@ -182,7 +217,6 @@ badges:
 
           {% if status in ['spinning', 'running'] %}
             /* Actively tumbling with water in the drum: full rock + bubbles. */
-            :host { --wm-icon-color: var(--state-active-color, #2196f3); }
             ha-state-icon { --rock-scale: 1; animation: rockDecay 3.5s infinite; }
             ha-state-icon::before, ha-state-icon::after {
               --bubble-opacity: 0.8;
@@ -190,16 +224,15 @@ badges:
             }
 
           {% elif status == 'add_drain' %}
-            /* Sloshing water visible inside the drum window instead of
-               bubbles floating around the outside - the machine isn't
-               moving yet, water is just rising/settling. Approximated as
-               a small circle roughly where the mdi washing-machine icon's
-               door sits; nudge --wm-fill-shift-y below if it needs to
-               line up better with the real icon artwork on your panel. */
-            :host {
-              --wm-icon-color: var(--state-active-color, #2196f3);
-              --wm-fill-shift-y: -45%;
-            }
+            /* Sloshing water visible inside the drum window: a wavy
+               surface (two offset rows of radial-gradient "bumps") drifts
+               sideways continuously while the solid fill beneath it
+               gently rises and falls in height. Sized/positioned as a
+               best-effort approximation of where the mdi washing-machine
+               icon's door sits - nudge --wm-fill-shift-y below if it
+               needs to line up better with the real icon artwork on your
+               panel. */
+            :host { --wm-fill-shift-y: -45%; }
             ha-state-icon::before {
               top: 50%;
               left: 50%;
@@ -207,18 +240,18 @@ badges:
               height: 18px;
               transform: translate(-50%, var(--wm-fill-shift-y));
               border-radius: 50%;
-              background:
-                linear-gradient(180deg, transparent 0 30%, rgba(33,150,243,0.85) 30% 100%),
-                repeating-linear-gradient(100deg, rgba(255,255,255,0.35) 0 3px, transparent 3px 9px);
-              background-size: 100% 100%, 220% 220%;
+              background-image:
+                radial-gradient(circle at 10px 0, transparent 5px, rgba(165, 224, 255, 0.95) 5px 12px),
+                radial-gradient(circle at 20px 0, transparent 5px, rgba(41, 182, 246, 0.95) 5px 12px),
+                linear-gradient(rgba(3, 155, 229, 0.95), rgba(3, 155, 229, 0.95));
+              background-repeat: repeat-x, repeat-x, no-repeat;
               opacity: 1;
-              animation: waterSlosh 2.6s ease-in-out infinite alternate;
-              will-change: background-position;
+              animation: waterSlosh 3.2s ease-in-out infinite;
+              will-change: background-position, background-size;
             }
 
           {% elif status in ['rinsing', 'rinse_hold', 'refreshing'] %}
             /* Lighter water motion than a full spin/run cycle. */
-            :host { --wm-icon-color: var(--state-active-color, #2196f3); }
             ha-state-icon { --rock-scale: 0.4; animation: rockDecay 4.5s infinite; }
             ha-state-icon::before, ha-state-icon::after {
               --bubble-opacity: 0.6;
@@ -226,17 +259,55 @@ badges:
             }
 
           {% elif status in ['prewash', 'soaking', 'steam_softening', 'dispensing'] %}
-            /* Slow pretreat/soak sway, no water-fill bubbles. */
-            :host { --wm-icon-color: #4fc3f7; }
+            /* Slow pretreat/soak sway with a few slow, soft bubbles. */
             ha-state-icon { --rock-scale: 0.15; animation: rockDecay 6s infinite; }
+            ha-state-icon::before, ha-state-icon::after {
+              --bubble-opacity: 0.45;
+              animation: floatBubble 6s linear infinite;
+            }
 
-          {% elif status in ['detecting', 'detergent_amount'] %}
-            /* Scanning/reading the load: quick neutral pulse, no rocking. */
-            :host { --wm-icon-color: #90a4ae; }
+          {% elif status == 'detergent_amount' %}
+            /* Reading/reporting the detergent amount: quick neutral pulse. */
             ha-state-icon {
               --pulse-min-opacity: 0.4;
               --pulse-scale: 1.12;
               animation: breathePulse 1.6s ease-in-out infinite;
+            }
+
+          {% elif status == 'detecting' %}
+            /* Magnifying glass badge that leans in over the icon to
+               "inspect" it, then returns to its resting corner spot -
+               a 1.5s round trip, then a 1s pause before repeating (2.5s
+               total loop, see the magnifyInspect keyframes above). Both
+               layers (the disc backdrop and the masked lens glyph) share
+               the exact same motion keyframes so they move as one badge;
+               each also gets its own transform reset so neither inherits
+               the ::after bubble-mirror transform from the shared rules
+               above while this animation is running. */
+            ha-state-icon::before, ha-state-icon::after {
+              top: -4px;
+              left: auto;
+              right: -6px;
+              width: 16px;
+              height: 16px;
+              opacity: 1;
+              animation: magnifyInspect 2.5s ease-in-out infinite;
+            }
+            ha-state-icon::before {
+              border-radius: 50%;
+              background-color: var(--card-background-color, #1c1c1c);
+              box-shadow: 0 0 0 1.5px var(--card-background-color, #1c1c1c);
+            }
+            ha-state-icon::after {
+              background-color: #90a4ae;
+              -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z'/%3E%3C/svg%3E");
+              mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z'/%3E%3C/svg%3E");
+              -webkit-mask-repeat: no-repeat;
+              mask-repeat: no-repeat;
+              -webkit-mask-position: center;
+              mask-position: center;
+              -webkit-mask-size: 62%;
+              mask-size: 62%;
             }
 
           {% elif status == 'error' %}
@@ -255,7 +326,6 @@ badges:
                ::before paints the round backdrop, ::after masks a clock
                glyph on top of it in the badge color - both painted once
                and left alone, so this state costs nothing ongoing. */
-            :host { --wm-icon-color: #ffb300; }
             ha-state-icon::before, ha-state-icon::after {
               top: -4px;
               left: auto;
@@ -263,6 +333,7 @@ badges:
               width: 16px;
               height: 16px;
               opacity: 1;
+              transform: none;
             }
             ha-state-icon::before {
               border-radius: 50%;
@@ -291,8 +362,7 @@ badges:
             }
 
           {% elif status == 'drying' %}
-            /* No water left, warm shimmer instead of blue tones. */
-            :host { --wm-icon-color: #ff9800; }
+            /* No water left: a slightly quicker shimmer pulse. */
             ha-state-icon {
               --pulse-min-opacity: 0.5;
               --pulse-scale: 1.1;
@@ -302,7 +372,6 @@ badges:
           {% elif status == 'pause' %}
             /* Cycle manually paused mid-way: same static-badge treatment
                as "reserved" above, with a pause glyph instead of a clock. */
-            :host { --wm-icon-color: #ffb300; }
             ha-state-icon::before, ha-state-icon::after {
               top: -4px;
               left: auto;
@@ -310,6 +379,7 @@ badges:
               width: 16px;
               height: 16px;
               opacity: 1;
+              transform: none;
             }
             ha-state-icon::before {
               border-radius: 50%;
@@ -332,15 +402,17 @@ badges:
             /* Freeze protection paused: static icy icon. */
             :host { --wm-icon-color: #4dd0e1; }
 
+          {% elif status == 'frozen_prevent_initial' %}
+            /* Freeze protection standby: static icy icon, same as the
+               other two freeze-protection states. */
+            :host { --wm-icon-color: #4dd0e1; }
+
           {% elif status == 'end' %}
-            /* Cycle complete: static green icon. */
-            :host { --wm-icon-color: #66bb6a; }
+            /* Cycle complete: static icon. */
 
           {% else %}
-            /* initial (standby), power_off, frozen_prevent_initial (freeze
-               protection standby), and any unavailable/unknown state:
-               static gray idle icon. */
-            :host { --wm-icon-color: gray; }
+            /* initial (standby), power_off, and any unavailable/unknown
+               state: static idle icon. */
           {% endif %}
 badges_align: left
 badges_wrap: scroll
