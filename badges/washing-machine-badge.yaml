@@ -39,13 +39,37 @@ badges:
             align-items: center !important;
             justify-content: center !important;
           }
+
+          /* 3. Stack last_updated underneath the state text instead of on
+             the same line, drop its separator dot, and recolor it. Home
+             Assistant doesn't publish the DOM for this "promoted state"
+             layout, so these selectors are a best-effort guess at the
+             real internal structure (the label/content wrapper and its
+             separator) - if any of this doesn't visibly change on your
+             panel, check the element inspector on the badge and send me
+             the actual class names so I can target them precisely. */
+          .info {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+          }
+          .content {
+            color: #f0f0f0 !important;
+          }
+          .label::after,
+          .content::before,
+          .content > *:first-child::before {
+            content: none !important;
+            display: none !important;
+          }
         .: |
           :host {
             --mdc-icon-size: 32px !important;
             --ha-badge-icon-size: 32px !important;
 
-            /* Sizing controls for the promoted State (Label) and Last Updated (Value) */
-            --ha-badge-label-font-size: 17px !important;
+            /* Sizing controls for the promoted State (Label) and Last
+               Updated (Value). State is 2px larger than the original
+               17px per request. */
+            --ha-badge-label-font-size: 19px !important;
             --ha-badge-font-size: 13px !important;
           }
 
