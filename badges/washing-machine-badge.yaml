@@ -180,7 +180,7 @@ badges:
 
           {% set status = states('sensor.washing_machine_current_status') %}
 
-          {% if status in ['Spinning', 'Running'] %}
+          {% if status in ['spinning', 'running'] %}
             /* Actively tumbling with water in the drum: full rock + bubbles. */
             :host { --wm-icon-color: var(--state-active-color, #2196f3); }
             ha-state-icon { --rock-scale: 1; animation: rockDecay 3.5s infinite; }
@@ -189,7 +189,7 @@ badges:
               animation: floatBubble 3.5s linear infinite;
             }
 
-          {% elif status == 'Filling' %}
+          {% elif status == 'add_drain' %}
             /* Sloshing water visible inside the drum window instead of
                bubbles floating around the outside - the machine isn't
                moving yet, water is just rising/settling. Approximated as
@@ -216,7 +216,7 @@ badges:
               will-change: background-position;
             }
 
-          {% elif status in ['Rinsing', 'Waiting to rinse', 'Refreshing'] %}
+          {% elif status in ['rinsing', 'rinse_hold', 'refreshing'] %}
             /* Lighter water motion than a full spin/run cycle. */
             :host { --wm-icon-color: var(--state-active-color, #2196f3); }
             ha-state-icon { --rock-scale: 0.4; animation: rockDecay 4.5s infinite; }
@@ -225,12 +225,12 @@ badges:
               animation: floatBubble 4.5s linear infinite;
             }
 
-          {% elif status in ['Prewashing', 'Soak', 'Steam softening', 'Auto dispensing'] %}
+          {% elif status in ['prewash', 'soaking', 'steam_softening', 'dispensing'] %}
             /* Slow pretreat/soak sway, no water-fill bubbles. */
             :host { --wm-icon-color: #4fc3f7; }
             ha-state-icon { --rock-scale: 0.15; animation: rockDecay 6s infinite; }
 
-          {% elif status in ['Detecting', 'Providing the info about the amount of detergent'] %}
+          {% elif status in ['detecting', 'detergent_amount'] %}
             /* Scanning/reading the load: quick neutral pulse, no rocking. */
             :host { --wm-icon-color: #90a4ae; }
             ha-state-icon {
@@ -239,7 +239,7 @@ badges:
               animation: breathePulse 1.6s ease-in-out infinite;
             }
 
-          {% elif status == 'Product requires attention' %}
+          {% elif status == 'error' %}
             /* Needs the user's attention: fast red pulse. */
             :host { --wm-icon-color: #ff5252; }
             ha-state-icon {
@@ -248,7 +248,7 @@ badges:
               animation: breathePulse 0.9s ease-in-out infinite;
             }
 
-          {% elif status == 'Delay set' %}
+          {% elif status == 'reserved' %}
             /* Static icon (nothing is actually running yet) with a small
                clock badge overlapping the top-right corner, like an app
                notification bubble. Two static, non-animated layers:
@@ -281,7 +281,7 @@ badges:
               mask-size: 62%;
             }
 
-          {% elif status == 'Freeze protection in progress' %}
+          {% elif status == 'frozen_prevent_running' %}
             /* Actively heating/cycling to prevent freezing: icy slow pulse. */
             :host { --wm-icon-color: #4dd0e1; }
             ha-state-icon {
@@ -290,7 +290,7 @@ badges:
               animation: breathePulse 3.5s ease-in-out infinite;
             }
 
-          {% elif status == 'Drying' %}
+          {% elif status == 'drying' %}
             /* No water left, warm shimmer instead of blue tones. */
             :host { --wm-icon-color: #ff9800; }
             ha-state-icon {
@@ -299,9 +299,9 @@ badges:
               animation: breathePulse 2.4s ease-in-out infinite;
             }
 
-          {% elif status == 'Paused' %}
+          {% elif status == 'pause' %}
             /* Cycle manually paused mid-way: same static-badge treatment
-               as "Delay set" above, with a pause glyph instead of a clock. */
+               as "reserved" above, with a pause glyph instead of a clock. */
             :host { --wm-icon-color: #ffb300; }
             ha-state-icon::before, ha-state-icon::after {
               top: -4px;
@@ -328,17 +328,18 @@ badges:
               mask-size: 55%;
             }
 
-          {% elif status == 'Freeze protection paused' %}
+          {% elif status == 'frozen_prevent_pause' %}
             /* Freeze protection paused: static icy icon. */
             :host { --wm-icon-color: #4dd0e1; }
 
-          {% elif status == 'Finished' %}
+          {% elif status == 'end' %}
             /* Cycle complete: static green icon. */
             :host { --wm-icon-color: #66bb6a; }
 
           {% else %}
-            /* Standby, Off, Freeze protection standby, and any
-               unavailable/unknown state: static gray idle icon. */
+            /* initial (standby), power_off, frozen_prevent_initial (freeze
+               protection standby), and any unavailable/unknown state:
+               static gray idle icon. */
             :host { --wm-icon-color: gray; }
           {% endif %}
 badges_align: left
