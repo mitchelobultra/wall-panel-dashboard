@@ -49,113 +49,216 @@ badges:
             --ha-badge-font-size: 13px !important;
           }
 
-          {% if is_state('switch.washing_machine_power', 'off') %}
-            /*
-              Both animations below only ever touch `transform` and
-              `opacity`. Those are the two properties every browser -
-              including weak/old WebKit engines like a Tizen smart-fridge
-              browser - can animate purely on the compositor thread, with
-              no main-thread layout or repaint per frame. That's what
-              actually matters for low-power devices, far more than any
-              GPU-layer-promotion trickery (3D transforms, translateZ
-              hacks, backface-visibility, etc.), which just spends extra
-              GPU memory a constrained device may not have to spare.
-              Keeping it to plain 2D rotate()/translate()/opacity is both
-              cheaper and more compatible.
-            */
-            @keyframes rockDecay {
-              0% {
-                transform: rotate(0deg);
-                animation-timing-function: ease-out;
-              }
-              8% {
-                transform: rotate(-15deg);
-                animation-timing-function: ease-in-out;
-              }
-              24% {
-                transform: rotate(10deg);
-                animation-timing-function: ease-in-out;
-              }
-              40% {
-                transform: rotate(-6deg);
-                animation-timing-function: ease-in-out;
-              }
-              56% {
-                transform: rotate(3deg);
-                animation-timing-function: ease-in-out;
-              }
-              64%, 100% {
-                transform: rotate(0deg);
-              }
-            }
+          /*
+            Shared building blocks, defined once so they're always present
+            regardless of which state branch below is active. Keeping them
+            outside the if/elif chain means switching between two states
+            in the *same* animation group (e.g. Running -> Spinning) emits
+            byte-identical CSS and doesn't re-trigger a style-tag/animation
+            restart, and it keeps the per-state branches themselves tiny
+            (better for re-parse cost on every card_mod template
+            re-render, which happens on most sensor state changes since
+            state_content includes last_updated).
 
-            /*
-              Replaces the old 5-layer box-shadow "bubbles" animation.
-              Animating box-shadow can never run on the compositor - the
-              browser has to recompute and repaint it on the main thread
-              on every single frame, and doing that for 5 shadow layers at
-              once is real CPU work. On a phone or tablet that's a battery
-              drain; on a fridge SoC it's a dropped-frames stutter. Two
-              small real elements faded/moved with opacity + transform give
-              the same "rising bubbles" read for a fraction of the cost.
-            */
-            @keyframes floatBubble {
-              0% { opacity: 0; transform: translate(0, 0) scale(0.5); }
-              15% { opacity: 0.8; }
-              70% { opacity: 0; }
-              100% { opacity: 0; transform: translate(-20px, -14px) scale(1); }
+            Every keyframe here only ever touches `transform` and
+            `opacity` - the two properties every browser, including
+            weak/old WebKit engines like a Tizen smart-fridge browser, can
+            animate purely on the compositor thread with no main-thread
+            layout or repaint per frame. Amplitude/speed/color differences
+            between states are expressed with CSS custom properties so we
+            don't need a separate @keyframes block per state.
+          */
+          @keyframes rockDecay {
+            0% {
+              transform: rotate(0deg);
+              animation-timing-function: ease-out;
             }
-
-            ha-state-icon {
-              --mdc-icon-size: 32px !important;
-              animation: rockDecay 3.5s infinite;
-              transform-origin: bottom center !important;
-              position: relative;
-              color: var(--state-active-color) !important;
-              will-change: transform;
+            8% {
+              transform: rotate(calc(-15deg * var(--rock-scale, 1)));
+              animation-timing-function: ease-in-out;
             }
+            24% {
+              transform: rotate(calc(10deg * var(--rock-scale, 1)));
+              animation-timing-function: ease-in-out;
+            }
+            40% {
+              transform: rotate(calc(-6deg * var(--rock-scale, 1)));
+              animation-timing-function: ease-in-out;
+            }
+            56% {
+              transform: rotate(calc(3deg * var(--rock-scale, 1)));
+              animation-timing-function: ease-in-out;
+            }
+            64%, 100% {
+              transform: rotate(0deg);
+            }
+          }
 
+          /*
+            Replaces the old 5-layer box-shadow "bubbles" animation.
+            Animating box-shadow can never run on the compositor - the
+            browser has to recompute and repaint it on the main thread on
+            every single frame, and doing that for 5 shadow layers at once
+            is real CPU work. Two small real elements faded/moved with
+            opacity + transform give the same "rising bubbles" read for a
+            fraction of the cost.
+          */
+          @keyframes floatBubble {
+            0% { opacity: 0; transform: translate(0, 0) scale(0.5); }
+            15% { opacity: var(--bubble-opacity, 0.8); }
+            70% { opacity: 0; }
+            100% { opacity: 0; transform: translate(-20px, -14px) scale(1); }
+          }
+
+          /* Generic "breathing" pulse used for the non-tumbling states
+             (detecting, drying, delay set, freeze protection, alerts). */
+          @keyframes breathePulse {
+            0%, 100% {
+              opacity: var(--pulse-min-opacity, 0.55);
+              transform: scale(1);
+            }
+            50% {
+              opacity: 1;
+              transform: scale(var(--pulse-scale, 1.08));
+            }
+          }
+
+          ha-state-icon {
+            --mdc-icon-size: 32px !important;
+            transform-origin: bottom center !important;
+            position: relative;
+            color: var(--wm-icon-color, gray) !important;
+            will-change: transform;
+          }
+
+          ha-state-icon::before,
+          ha-state-icon::after {
+            content: '';
+            position: absolute;
+            top: 0px;
+            left: 50%;
+            width: 5px;
+            height: 5px;
+            background-color: rgba(100, 181, 246, 0.8);
+            border-radius: 50%;
+            pointer-events: none;
+            opacity: 0;
+            will-change: transform, opacity;
+          }
+
+          ha-state-icon::after {
+            /* Second bubble reuses the same keyframes, mirrored and offset
+               in time, instead of defining a second animation. */
+            animation-delay: -1.75s;
+            transform: scaleX(-1);
+          }
+
+          /* Respect the OS/browser-level reduced-motion preference so
+             anyone (or any device) that has turned it on for battery or
+             comfort reasons gets a static icon instead of paying for the
+             animation at all. */
+          @media (prefers-reduced-motion: reduce) {
+            ha-state-icon,
             ha-state-icon::before,
             ha-state-icon::after {
-              content: '';
-              position: absolute;
-              top: 0px;
-              left: 50%;
-              width: 5px;
-              height: 5px;
-              background-color: rgba(100, 181, 246, 0.8);
-              border-radius: 50%;
-              pointer-events: none;
-              opacity: 0;
+              animation: none !important;
+            }
+          }
+
+          {% set status = states('sensor.washing_machine_current_status') %}
+
+          {% if status in ['Spinning', 'Running'] %}
+            /* Actively tumbling with water in the drum: full rock + bubbles. */
+            :host { --wm-icon-color: var(--state-active-color, #2196f3); }
+            ha-state-icon { --rock-scale: 1; animation: rockDecay 3.5s infinite; }
+            ha-state-icon::before, ha-state-icon::after {
+              --bubble-opacity: 0.8;
               animation: floatBubble 3.5s linear infinite;
-              will-change: transform, opacity;
             }
 
-            ha-state-icon::after {
-              /* Second bubble reuses the same keyframes, mirrored and
-                 offset in time, instead of defining a second animation -
-                 keeps the CSS payload (and re-parse cost on every card_mod
-                 template re-render) smaller. */
-              animation-delay: -1.75s;
-              transform: scaleX(-1);
+          {% elif status == 'Filling' %}
+            /* Water pouring in: bubbles only, drum not moving yet. */
+            :host { --wm-icon-color: var(--state-active-color, #2196f3); }
+            ha-state-icon::before, ha-state-icon::after {
+              --bubble-opacity: 0.8;
+              animation: floatBubble 2.6s linear infinite;
             }
 
-            /* Respect the OS/browser-level reduced-motion preference so
-               anyone (or any device) that has turned it on for battery or
-               comfort reasons gets a static icon instead of paying for
-               the animation at all. */
-            @media (prefers-reduced-motion: reduce) {
-              ha-state-icon,
-              ha-state-icon::before,
-              ha-state-icon::after {
-                animation: none !important;
-              }
+          {% elif status in ['Rinsing', 'Waiting to rinse', 'Refreshing'] %}
+            /* Lighter water motion than a full spin/run cycle. */
+            :host { --wm-icon-color: var(--state-active-color, #2196f3); }
+            ha-state-icon { --rock-scale: 0.4; animation: rockDecay 4.5s infinite; }
+            ha-state-icon::before, ha-state-icon::after {
+              --bubble-opacity: 0.6;
+              animation: floatBubble 4.5s linear infinite;
             }
-          {% else %}
+
+          {% elif status in ['Prewashing', 'Soak', 'Steam softening', 'Auto dispensing'] %}
+            /* Slow pretreat/soak sway, no water-fill bubbles. */
+            :host { --wm-icon-color: #4fc3f7; }
+            ha-state-icon { --rock-scale: 0.15; animation: rockDecay 6s infinite; }
+
+          {% elif status in ['Detecting', 'Providing the info about the amount of detergent'] %}
+            /* Scanning/reading the load: quick neutral pulse, no rocking. */
+            :host { --wm-icon-color: #90a4ae; }
             ha-state-icon {
-              --mdc-icon-size: 32px !important;
-              color: gray !important;
+              --pulse-min-opacity: 0.4;
+              --pulse-scale: 1.12;
+              animation: breathePulse 1.6s ease-in-out infinite;
             }
+
+          {% elif status == 'Product requires attention' %}
+            /* Needs the user's attention: fast red pulse. */
+            :host { --wm-icon-color: #ff5252; }
+            ha-state-icon {
+              --pulse-min-opacity: 0.35;
+              --pulse-scale: 1.15;
+              animation: breathePulse 0.9s ease-in-out infinite;
+            }
+
+          {% elif status == 'Delay set' %}
+            /* Waiting on a scheduled start: slow amber breathing. */
+            :host { --wm-icon-color: #ffb300; }
+            ha-state-icon {
+              --pulse-min-opacity: 0.6;
+              --pulse-scale: 1.05;
+              animation: breathePulse 3s ease-in-out infinite;
+            }
+
+          {% elif status == 'Freeze protection in progress' %}
+            /* Actively heating/cycling to prevent freezing: icy slow pulse. */
+            :host { --wm-icon-color: #4dd0e1; }
+            ha-state-icon {
+              --pulse-min-opacity: 0.55;
+              --pulse-scale: 1.06;
+              animation: breathePulse 3.5s ease-in-out infinite;
+            }
+
+          {% elif status == 'Drying' %}
+            /* No water left, warm shimmer instead of blue tones. */
+            :host { --wm-icon-color: #ff9800; }
+            ha-state-icon {
+              --pulse-min-opacity: 0.5;
+              --pulse-scale: 1.1;
+              animation: breathePulse 2.4s ease-in-out infinite;
+            }
+
+          {% elif status == 'Paused' %}
+            /* Cycle manually paused mid-way: static amber icon. */
+            :host { --wm-icon-color: #ffb300; }
+
+          {% elif status == 'Freeze protection paused' %}
+            /* Freeze protection paused: static icy icon. */
+            :host { --wm-icon-color: #4dd0e1; }
+
+          {% elif status == 'Finished' %}
+            /* Cycle complete: static green icon. */
+            :host { --wm-icon-color: #66bb6a; }
+
+          {% else %}
+            /* Standby, Off, Freeze protection standby, and any
+               unavailable/unknown state: static gray idle icon. */
+            :host { --wm-icon-color: gray; }
           {% endif %}
 badges_align: left
 badges_wrap: scroll
